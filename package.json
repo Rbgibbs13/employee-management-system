@@ -1,0 +1,16 @@
+{
+  "name": "employee-management-system",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "Garrett Gibbs",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.1",
+    "inquirer": "^8.2.4",
+    "mysql2": "^3.9.1"
+  }
+}
