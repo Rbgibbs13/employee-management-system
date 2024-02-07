@@ -3,13 +3,13 @@ const connection = require("../config/connection.js");
 const { response } = require("express");
 const inquirer = require("../../node_modules/inquirer");
 
-const InitialPrompt = () => {
+const InitialPrompt = async () => {
     inquirer.prompt([
         {
             name: "answer",
             type: "list",
             message: "What would you like to do?",
-            choices: ["view all departments", "view all roles", "view all employees", "add a department", "add a role", "add an employee", "remove a department", "remove a role", "remove an employee", "update an employee role"],
+            choices: ["view all departments", "view all roles", "view all employees", "add a department", "add a role", "add an employee", "remove a department", "remove a role", "remove an employee", "view department costs", "update an employee role"],
         }
     ]).then((response) => {
         const answer = response.answer;
@@ -50,6 +50,10 @@ const InitialPrompt = () => {
             case "remove an employee":
                 removeEmployee();
                 break;
+
+            case "view department costs":
+                departmentCosts();
+                break;
     
             case "update an employee role":
                 updateEmployeeRole();
@@ -69,7 +73,7 @@ const viewAllDepartments = async () => {
     conn = await connection;
     const res = await conn.query(sql);
     console.log(res[0]);
-    InitialPrompt();
+    await InitialPrompt();
 };
 
 const viewAllRoles = async () => {
@@ -77,7 +81,7 @@ const viewAllRoles = async () => {
     conn = await connection;
     const res = await conn.query(sql);
     console.log(res[0]);
-    InitialPrompt();
+    await InitialPrompt();
 };
 
 const viewAllEmployees = async () => {
@@ -85,7 +89,7 @@ const viewAllEmployees = async () => {
     conn = await connection;
     const res = await conn.query(sql);
     console.log(res[0]);
-    InitialPrompt();
+    await InitialPrompt();
 };
 
 const addDepartmentHandler = () => {
@@ -93,14 +97,17 @@ const addDepartmentHandler = () => {
         {
             name: "answer",
             type: "input",
-            message: "Department Name",
+            message: "Department Name (Leave Empty to Return)",
             filter: (result) => { 
-                if(result.length > 30) return result.substring(0,1).toUpperCase() + result.substring(1,30).toLowerCase(); 
-                else return result.toLowerCase();
+                return result.substring(0,1).toUpperCase() + result.substring(1,30).toLowerCase();
             },
         }
     ]).then((response) => {
         const answer = response.answer;
+        if(answer == "") {
+            InitialPrompt();
+            return;
+        }
         addDepartment(answer);
     });
 }
@@ -111,7 +118,7 @@ const addDepartment = async (depName) => {
     conn = await connection;            
     const res = await conn.query(sql);
     viewAllDepartments();
-    InitialPrompt();
+    await InitialPrompt();
 };
 
 const removeDepartment = async() => {
@@ -119,6 +126,7 @@ const removeDepartment = async() => {
     conn = await connection;     
     const res = await conn.query(sql);
     const departments = [];
+    departments.push("Exit");
     for(let i = 0; i < res[0].length; i++) {
         departments.push(res[0][i].department_name);
     }
@@ -131,13 +139,18 @@ const removeDepartment = async() => {
             message: "Select Department to Remove"
         }
     ]).then((response) => {
-        const department = response.department;
+        const department = response.Department;
+        if(department == "Exit") { 
+            InitialPrompt(); 
+            return; 
+        }
         sendQuery = async(department) => {
+            console.log(department);
             const sql = `DELETE FROM department WHERE department_name="${department}";`            
             conn = await connection;  
             const res = await conn.query(sql);
             viewAllDepartments();
-            InitialPrompt();
+            await InitialPrompt();
         };
         sendQuery(department);
     });
@@ -148,20 +161,26 @@ const addRole = async () => {
         {
             name: "roleName",
             type: "input",
-            description: "New Role Name",
+            message: "New Role Name (Leave Empty to Return)",
         },
         {
             name: "salary",
             type: "number",
-            description: "Role Pay",
+            message: "Role Pay(hourly)",
+            default: "15.00",
         },
         {
             name: "departmentID",
             type: "number",
-            description: "Role Department",
+            message: "Role Department (Leave Empty to Return)",
         },
     ]).then((response) => {
         const { roleName, salary, departmentID } = response;
+        console.log(departmentID);
+        if(roleName == "" || isNaN(departmentID)) {
+            InitialPrompt();
+            return;
+        }
         sendQuery = async(roleName, salary, departmentID) => {
             const sql = `INSERT INTO role(title, salary, department_id)
                  VALUES("${roleName}", ${salary}, ${departmentID});`
@@ -169,7 +188,7 @@ const addRole = async () => {
             conn = await connection;  
             const res = await conn.query(sql);
             viewAllRoles();
-            InitialPrompt();
+            await InitialPrompt();
         };
         sendQuery(roleName, salary, departmentID);
     });
@@ -180,6 +199,7 @@ const removeRole = async() => {
     conn = await connection;     
     const res = await conn.query(sql);
     const roles = [];
+    roles.push("Exit");
     for(let i = 0; i < res[0].length; i++) {
         roles.push(res[0][i].title);
     }
@@ -192,13 +212,17 @@ const removeRole = async() => {
             message: "Select Role to Remove"
         }
     ]).then((response) => {
-        const role = response.role;
+        const role = response.Role;
+        if(role == "Exit") {
+            InitialPrompt();
+            return;
+        }
         sendQuery = async(role) => {
             const sql = `DELETE FROM role WHERE title="${role}";`            
             conn = await connection;  
             const res = await conn.query(sql);
             viewAllRoles();
-            InitialPrompt();
+            await InitialPrompt();
         };
         sendQuery(role);
     });
@@ -209,20 +233,24 @@ const addEmployee = async(firstName, lastName, roleID) => {
         {
             name: "firstName",
             type: "input",
-            description: "Employee First Name",
+            message: "Employee First Name (Leave Empty to Return)",
         },
         {
             name: "lastName",
             type: "input",
-            description: "Employee Last Name",
+            message: "Employee Last Name (Leave Empty to Return)",
         },
         {
             name: "roleID",
             type: "number",
-            description: "Employee Role ID",
+            message: "Employee Role ID (Leave Empty to Return)",
         },
     ]).then((response) => {
         const { firstName, lastName, roleID } = response;
+        if(firstName == "" || lastName == "" || roleID == null) {
+            InitialPrompt();
+            return;
+        }
         sendQuery = async(firstName, lastName, roleID) => {
             const sql = `INSERT INTO employee(first_name, last_name, role_id, manager_id)
                  VALUES("${firstName}", "${lastName}", ${roleID}, ${null});`
@@ -230,7 +258,7 @@ const addEmployee = async(firstName, lastName, roleID) => {
             conn = await connection; 
             const res = await conn.query(sql);
             viewAllEmployees();
-            InitialPrompt();
+            await InitialPrompt();
         };
         sendQuery(firstName, lastName, roleID);
     });
@@ -241,6 +269,7 @@ const removeEmployee = async() => {
     conn = await connection;     
     const res = await conn.query(sql);
     const employees = [];
+    employees.push("Exit");
     for(let i = 0; i < res[0].length; i++) {
         employees.push(res[0][i].first_name + " " + res[0][i].last_name);
     }
@@ -253,43 +282,101 @@ const removeEmployee = async() => {
             message: "Select Employee to Remove"
         }
     ]).then((response) => {
-        const employee = response.Employee.split(" ");
+        const employee = response.Employee;
+        if(employee == "Exit") {
+            InitialPrompt();
+            return;
+        }
         sendQuery = async(first_name, last_name) => {
             const sql = `DELETE FROM employee WHERE first_name="${first_name}" AND last_name="${last_name}";`;
             conn = await connection;  
             const res = await conn.query(sql);
             viewAllEmployees();
-            InitialPrompt();
+            await InitialPrompt();
         };
+
+        employee = employee.split(" ");
         sendQuery(employee[0], employee[1]);
     });
 };
 
+const departmentCosts = async() => {
+    const sql = `SELECT department_id, SUM(salary) AS department_cost FROM role
+    GROUP BY department_id;`;
+    conn = await connection; 
+    const res = await conn.query(sql);
+    const names = [];
+
+    for(let i = 0; i < res[0].length; i++) {
+        //const departmentSQL = `SELECT department_name FROM department WHERE id=${i};`;
+        const dsql = "SELECT * FROM department;";
+        conn = await connection;
+        const dres = await conn.query(dsql);
+        names.push(dres[0][i].department_name);
+        console.log("\n" + names[i] + " Department Cost: " + res[0][i].department_cost + "\n");
+    }
+    
+    await InitialPrompt();
+};
+
 const updateEmployeeRole = async() => {
+    const employeeSQL = `SELECT * FROM employee;`;
+    conn = await connection;     
+    const res = await conn.query(employeeSQL);
+    const employees = [];
+    for(let i = 0; i < res[0].length; i++) {
+        employees.push(res[0][i].first_name + " " + res[0][i].last_name);
+    }
+
+    const roleSQL = `SELECT * FROM role;`;
+    conn = await connection;
+    const response = await conn.query(roleSQL);
+    const roleNames = [];
+    for(let i = 0; i < response[0].length; i++) {
+        roleNames.push(response[0][i].title);
+    }
+
+
     inquirer.prompt([
         {
-            name: "employeeID",
-            type: "number",
-            message: "Employee ID",
+            name: "employeeName",
+            type: "list",
+            choices: employees,
+            message: "Employee",
         },
         {
-            name: "roleID",
-            type: "number",
-            message: "New Role ID",
+            name: "roleTitle",
+            type: "list",
+            choices: roleNames,
+            message: "New Role",
         }
     ]).then((response) => {
-        const { employeeID, roleID } = response;
-        sendQuery = async(employeeID, roleID) => {
+        const { employeeName, roleTitle } = response;
+        const employeeNames = employeeName.split(" ");
+        const roleID = convertTitleToID(roleTitle);
+
+        sendQuery = async(firstName, lastName, roleID) => {
             const sql = `UPDATE employee
                      SET role_id = ${roleID}
-                     WHERE id = ${employeeID};`
+                     WHERE first_name = "${firstName}"
+                     AND last_name = "${lastName}";`
             conn = await connection; 
             const res = await conn.query(sql);
             viewAllEmployees();
-            InitialPrompt();
+            await InitialPrompt();
         };
-        sendQuery(employeeID, roleID);
+        sendQuery(employeeNames[0], employeeNames[1], roleID);
     });    
+};
+
+const convertTitleToID = async(title) => {
+    const sql = `SELECT id 
+    FROM role
+    WHERE title="${title}";`;
+    conn = await connection;
+    const response = await conn.query(sql);
+    console.log(response[0]);
+    return response[0].id;
 };
 
 InitialPrompt();
