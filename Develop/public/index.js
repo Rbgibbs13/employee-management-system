@@ -11,10 +11,10 @@ const InitialPrompt = async () => {
             type: "list",
             message: "What would you like to do?",
             choices: ["view all departments", "view all roles", "view all employees", "add a department", "add a role", "add an employee", "remove a department", "remove a role", "remove an employee", "view department costs", "update an employee role"],
-        }
-    ]).then((response) => {
+        },
+    ]).promise().then((response) => {
         const answer = response.answer;
-    
+        console.log(answer);
         switch(answer) {
             case "view all departments":
                 viewAllDepartments();
@@ -283,7 +283,7 @@ const removeEmployee = async() => {
             message: "Select Employee to Remove"
         }
     ]).then((response) => {
-        const employee = response.Employee;
+        let employee = response.Employee;
         if(employee == "Exit") {
             InitialPrompt();
             return;
@@ -321,7 +321,6 @@ const departmentCosts = async() => {
         let cost = 0;
         for(let k = 0; k < roleResponse[0].length; k++) {
             if(departmentRes[0][i].id == roleResponse[0][k].department_id) {
-                console.log(departmentRes[0][i].id + " : " + roleResponse[0][k].department_id);
                 deptEmployeeSum += countResponse[0][k].employee_count;
             };
         };
@@ -363,9 +362,7 @@ const updateEmployeeRole = async() => {
         }
     ]).then((response) => {
         const { employeeName, roleTitle } = response;
-        const employeeNames = employeeName.split(" ");
-        const roleID = convertTitleToID(roleTitle);
-
+        const employeeNames = employeeName.split(" ");        
         sendQuery = async(firstName, lastName, roleID) => {
             const sql = `UPDATE employee
                      SET role_id = ${roleID}
@@ -375,7 +372,11 @@ const updateEmployeeRole = async() => {
             viewAllEmployees();
             await InitialPrompt();
         };
-        sendQuery(employeeNames[0], employeeNames[1], roleID);
+        convertTitleToID(roleTitle).then((response) => {
+            console.log(response);
+            let roleID = response;
+            sendQuery(employeeNames[0], employeeNames[1], roleID);
+        });
     });    
 };
 
@@ -390,7 +391,8 @@ const convertTitleToID = async(title) => {
     FROM role
     WHERE title="${title}";`;
     const response = await databaseQuery(sql);
-    return response[0].id;
+    console.log(response[0][0].id);
+    return response[0][0].id;
 };
 
 InitialPrompt();
